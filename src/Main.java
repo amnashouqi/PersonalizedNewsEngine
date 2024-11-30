@@ -42,9 +42,10 @@ public class Main {
                 System.out.print("Enter password: ");
                 password = scanner.nextLine();
 
-                if (UserManager.loginUser(username, password)) {
-                    System.out.println("Welcome "+username+"!");
-                    Webscraper.scrapeArticles();  // Scrape articles when logged in
+                int userId = UserManager.loginUser(username, password);
+                if (userId != -1) {
+                    System.out.println("Welcome " + username + "!");
+                    Webscraper.scrapeArticles(userId); // Pass the userId to scrapeArticles
                 } else {
                     System.out.println("Login failed.");
                 }
@@ -60,13 +61,16 @@ public class Main {
             System.out.print("Enter password: ");
             String password = scanner.nextLine();
 
-            if (UserManager.loginUser(username, password)) {
-                System.out.println("Welcome "+username+"!");
-                Webscraper.scrapeArticles();
+            int userId = UserManager.loginUser(username, password);
+            if (userId != -1) {
+                System.out.println("Welcome " + username + "!");
+                Webscraper.scrapeArticles(userId); // Pass the userId to scrapeArticles
             } else {
                 System.out.println("Login failed.");
             }
             clearExistingNews();
+            System.out.println("cleaning outside the loop");
+
             System.out.println();
             System.out.println("Thank you! See ya soon. 😎");
         }
