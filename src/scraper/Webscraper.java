@@ -8,12 +8,11 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Scanner;
+
 public class Webscraper {
 
     private static Map<String, String[]> categories = new HashMap<>();
@@ -45,11 +44,10 @@ public class Webscraper {
                 String title = article.text();
                 String url = "https://www.aljazeera.com" + article.attr("href"); // Complete the URL if it's relative
 
-                // Optionally scrape more content for each article
                 Document articlePage = Jsoup.connect(url).get();
-                String content = articlePage.select(".wysiwyg").text(); // Adjust selector if necessary
+                String content = articlePage.select(".wysiwyg").text(); // cssQuery might change later on
 
-                // Categorize the article (simple keyword matching)
+                // Categorize the article for simple keyword matching
                 Map<String, Integer> scores = categorizeArticle(content);
 
                 // Save article to DB
@@ -63,6 +61,50 @@ public class Webscraper {
         }
     }
 
+    public static void displayArticles(int articleId) {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement("SELECT title, content FROM Articles WHERE id = ?")) {
+
+            pstmt.setInt(1, articleId); // Use PreparedStatement to prevent SQL injection
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                String title = rs.getString("title");
+                String content = rs.getString("content");
+
+                System.out.println("\n--- Article Details ---");
+                System.out.println("Title: " + title);
+                System.out.println("Content: " + content);
+
+                int yesNo = getUserInput("Do you want to read more articles? (enter 1 for yes, 2 for no): ");
+                if (yesNo == 1) {
+                    displayTitles();
+                }
+
+            } else {
+                System.out.println("Article not found.");
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void clearExistingNews() {
+        try (Connection conn = DBConnection.getConnection();
+             Statement stmt = conn.createStatement()) {
+
+            String query = "DELETE FROM Articles";
+            int rowsDeleted = stmt.executeUpdate(query);
+
+            //System.out.println(rowsDeleted + " existing articles cleared from the database.");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+
     public static void displayTitles() {
         try (Connection conn = DBConnection.getConnection();
              Statement stmt = conn.createStatement()) {
@@ -71,10 +113,23 @@ public class Webscraper {
             ResultSet rs = stmt.executeQuery(query);
 
             System.out.println("Available Articles:");
+            Map<Integer, Integer> articleMap = new HashMap<>(); // Maps articleNumber to actual DB id
+            int articleNumber = 1;
+
             while (rs.next()) {
                 int id = rs.getInt("id");
                 String title = rs.getString("title");
-                System.out.println(id + ". " + title);
+                articleMap.put(articleNumber, id); // Store the mapping
+                System.out.println(articleNumber + ". " + title); // Use the counter instead of id
+                articleNumber++;
+            }
+
+            int selectedArticle = getUserInput("Enter the number of the article that you are interested in reading: ");
+            if (articleMap.containsKey(selectedArticle)) {
+                int actualId = articleMap.get(selectedArticle); // Get the actual DB id
+                displayArticles(actualId); // Pass the DB id to displayArticles
+            } else {
+                System.out.println("Invalid selection.");
             }
 
         } catch (Exception e) {
@@ -82,6 +137,16 @@ public class Webscraper {
         }
     }
 
+    private static int getUserInput(String prompt) {
+        Scanner scanner = new Scanner(System.in);
+        System.out.print(prompt);
+        while (!scanner.hasNextInt()) {
+            System.out.println("Invalid input. Please enter a valid article number.");
+            System.out.print(prompt);
+            scanner.next();
+        }
+        return scanner.nextInt();
+    }
     private static Map<String, Integer> categorizeArticle(String content) {
         content = content.toLowerCase(); // Convert to lowercase for easier matching
         Map<String, Integer> scores = new HashMap<>();
@@ -124,7 +189,7 @@ public class Webscraper {
             stmt.setString(3, topCategory); // Save only the top category
             stmt.executeUpdate();
 
-            System.out.println("Saved article with top category: " + topCategory);
+            //System.out.println("Saved article with top category: " + topCategory);
 
         } catch (SQLException e) {
             e.printStackTrace();

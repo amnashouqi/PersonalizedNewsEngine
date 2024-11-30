@@ -5,6 +5,8 @@ import scraper.Webscraper;
 
 import java.util.Scanner;
 
+import static scraper.Webscraper.clearExistingNews;
+
 public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
@@ -14,8 +16,11 @@ public class Main {
 
         // Register or Login
         System.out.println("1. Register\n2. Login");
+        System.out.println();
+
         int choice = scanner.nextInt();
         scanner.nextLine();  // Consume newline
+        System.out.println();
 
         if (choice == 1) {
             System.out.print("Enter username: ");
@@ -26,7 +31,7 @@ public class Main {
             User user = new User(username, password);
 
             if (UserManager.registerUser(user)) {
-                System.out.println("User registered successfully!");
+                System.out.println("Congrats "+username+"! You have registered to our system successfully!");
 
                 //carrying out the login process here for first timers
 
@@ -38,7 +43,7 @@ public class Main {
                 password = scanner.nextLine();
 
                 if (UserManager.loginUser(username, password)) {
-                    System.out.println("Login successful!");
+                    System.out.println("Welcome "+username+"!");
                     Webscraper.scrapeArticles();  // Scrape articles when logged in
                 } else {
                     System.out.println("Login failed.");
@@ -56,11 +61,14 @@ public class Main {
             String password = scanner.nextLine();
 
             if (UserManager.loginUser(username, password)) {
-                System.out.println("Login successful!");
-                Webscraper.scrapeArticles();  // Scrape articles when logged in
+                System.out.println("Welcome "+username+"!");
+                Webscraper.scrapeArticles();
             } else {
                 System.out.println("Login failed.");
             }
+            clearExistingNews();
+            System.out.println();
+            System.out.println("Thank you! See ya soon. 😎");
         }
     }
 }
