@@ -27,6 +27,9 @@ public class Main {
 
             if (UserManager.registerUser(user)) {
                 System.out.println("User registered successfully!");
+
+                //carrying out the login process here for first timers
+
                 System.out.println();
                 System.out.println("Let's login now to get started!");
                 System.out.print("Enter username: ");
@@ -44,6 +47,8 @@ public class Main {
             } else {
                 System.out.println("Registration failed.");
             }
+
+            //repeating users
         } else if (choice == 2) {
             System.out.print("Enter username: ");
             String username = scanner.nextLine();
