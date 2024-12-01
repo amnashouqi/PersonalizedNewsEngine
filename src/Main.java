@@ -13,10 +13,11 @@ public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         System.out.println();
-        System.out.println("Welcome to your Personalized New Recommendation System!");
+        System.out.println("Hold onto your hat! Welcome to your Personalized News Recommendation System! Let’s get you updated!");
         System.out.println();
 
         // Register or Login
+        System.out.println("What’s your choice, adventurer? 🧙‍♂️ Are you here to register for the first time or login to your news kingdom?");
         System.out.println("1. Register\n2. Login");
         System.out.println();
 
@@ -25,23 +26,23 @@ public class Main {
         System.out.println();
 
         if (choice == 1) {
-            System.out.print("Enter username: ");
+            System.out.print("What’s your name, O wise one? (Enter your username): ");
             String username = scanner.nextLine();
-            System.out.print("Enter password: ");
+            System.out.print("Shh, keep it secret, keep it safe! (Enter your password): ");
             String password = scanner.nextLine();
 
             User user = new User(username, password);
 
             if (UserManager.registerUser(user)) {
-                System.out.println("Congrats "+username+"! You have registered to our system successfully!");
+                System.out.println("🎉 Yasss! Welcome aboard, "+username+"! You’re officially part of our news-hungry community!");
 
                 //carrying out the login process here for first timers
 
                 System.out.println();
-                System.out.println("Let's login now to get started!");
-                System.out.print("Enter username: ");
+                System.out.println("Ready to dive back in? Let's login and jump into the latest news!");
+                System.out.print("Welcome back, hero! Enter your username to unlock your news: ");
                 username = scanner.nextLine();
-                System.out.print("Enter password: ");
+                System.out.print("Your secret code, please. (We promise to keep it safe.): ");
                 password = scanner.nextLine();
 
                 int userId = UserManager.loginUser(username, password);
@@ -49,32 +50,31 @@ public class Main {
                     System.out.println("Welcome " + username + "!");
                     Webscraper.scrapeArticles(userId); // Pass the userId to scrapeArticles
                 } else {
-                    System.out.println("Login failed.");
+                    System.out.println( "Oops! That didn’t work. Double-check your username and password, and try again!");
                 }
 
             } else {
-                System.out.println("Registration failed.");
+                System.out.println("Whoopsie-daisy! Something went wrong with your registration. Try again, and we’ll make it right!");
             }
 
             //repeating users
         } else if (choice == 2) {
-            System.out.print("Enter username: ");
+            System.out.print("Welcome back, hero! Enter your username to unlock your news: ");
             String username = scanner.nextLine();
-            System.out.print("Enter password: ");
+            System.out.print("Your secret code, please. (We promise to keep it safe): ");
             String password = scanner.nextLine();
 
             int userId = UserManager.loginUser(username, password);
             if (userId != -1) {
-                System.out.println("Welcome " + username + "!");
+                System.out.println("Welcome back, "+username+"! It’s good to see you again. Your personalized news awaits!");
                 Webscraper.scrapeArticles(userId); // Pass the userId to scrapeArticles
             } else {
-                System.out.println("Login failed.");
+                System.out.println("Oops! That didn’t work. Double-check your username and password, and try again!");
             }
             clearExistingNews();
-            System.out.println("cleaning outside the loop");
 
             System.out.println();
-            System.out.println("Thank you! See ya soon. 😎");
+            System.out.println("And that’s a wrap! Thanks for visiting, "+username+". Catch you on the flip side. 😎");
         }
     }
 }

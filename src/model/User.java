@@ -86,7 +86,7 @@ public class User {
 
             // Execute the batch update
             updateStmt.executeBatch();
-            //System.out.println("User like updated successfully for user ID: " + userId);
+            System.out.println("Thumbs up! You officially liked it. We knew you had good taste.");
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -127,7 +127,7 @@ public class User {
 
             // Execute the batch update
             updateStmt.executeBatch();
-            System.out.println("User dislike updated successfully for user ID: " + userId);
+            System.out.println("A thumbs down? Don’t worry, we’ll find something better!");
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -166,7 +166,7 @@ public class User {
 
             // Execute the batch update
             updateStmt.executeBatch();
-            System.out.println("User skip updated successfully for user ID: " + userId);
+            //System.out.println("User skip updated successfully for user ID: " + userId);
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -193,10 +193,10 @@ public class User {
 
             // Prompt user for a rating
             Scanner scanner = new Scanner(System.in);
-            System.out.println("Rate this article on a scale of 1-10: ");
+            System.out.println("Rate it like you’re reviewing a Netflix series from 1 to 10: ");
             int rating = scanner.nextInt();
             if (rating < 1 || rating > 10) {
-                System.out.println("Invalid rating. Please enter a value between 1 and 10.");
+                System.out.println("Uh-oh, you’ve gone off the charts. A rating between 1 and 10 is all we need!");
                 return;
             }
 
@@ -204,11 +204,14 @@ public class User {
             double multiplier;
             if (rating == 6) {
                 multiplier = 1; // No impact for a neutral rating
+
             } else if (rating > 6) {
                 multiplier = 1 + (rating - 6) * 0.5; // Increment by 0.5 per step above 6
+                System.out.println("Top contender right here! This article just leveled up.");
             } else {
                 // For ratings below 6 (but not 5), reduce the multiplier, making it negative for scores below 5
                 multiplier = 1 - (6 - rating) * 0.2; // Decrease multiplier for negative ratings (below 6)
+                System.out.println("Don’t worry, we are working hard behind the scenes to find your favorites!");
             }
 
             // Iterate over categories and update scores
@@ -240,7 +243,7 @@ public class User {
 
             // Execute batch update
             updateStmt.executeBatch();
-            System.out.println("User rating updated successfully for user ID: " + userId);
+            //System.out.println("User rating updated successfully for user ID: " + userId);
         } catch (SQLException e) {
             e.printStackTrace();
         }
