@@ -68,9 +68,8 @@ public class UserManager {
         return userPreferences;
     }
 
-    public static void setUserPreferences(int userId, int scores){
-        //method to update the user preference table with the scores of the categories of a specific article. This method will be called any time the user views an article
-    }
+
+
 
 
 }

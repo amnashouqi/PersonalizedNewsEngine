@@ -9,6 +9,9 @@ import java.io.IOException;
 import java.sql.*;
 import java.sql.Connection;
 import java.util.*;
+
+import static db.UserManager.*;
+
 public class Webscraper {
     private static Map<String, String[]> categories = new HashMap<>();
     static {
@@ -38,7 +41,7 @@ public class Webscraper {
                 String content = articlePage.select(".wysiwyg").text();
 
                 // Save the article to the database
-                int articleId = getArticleId(title);
+                int articleId = getArticleIdByTitle(title);
                 if (articleId == -1) {
                     // Insert article if not already present and get the ID
                     articleId = saveArticleToDB(title, content);
@@ -92,26 +95,6 @@ public class Webscraper {
             e.printStackTrace();
         }
         return rankedArticles;
-    }
-    public static int getArticleId(String title) {
-        int articleId = -1;
-        try (Connection conn = DBConnection.getConnection()) {
-            // Check if the article already exists
-            String selectQuery = "SELECT id FROM Articles WHERE title = ?";
-            try (PreparedStatement pstmt = conn.prepareStatement(selectQuery)) {
-                pstmt.setString(1, title);
-                //pstmt.setString(2, url);
-                ResultSet rs = pstmt.executeQuery();
-                if (rs.next()) {
-                    articleId = rs.getInt("id");
-                    return articleId;  // Article already exists, return its ID
-                }
-            }
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return articleId;
     }
     public static void displayArticles(int articleId, int userId) {
         try (Connection conn = DBConnection.getConnection();
@@ -173,15 +156,22 @@ public class Webscraper {
                     System.out.println("Select an article by number (or 0 to exit): ");
                     int choice = scanner.nextInt();
                     if (choice != 0 && choice <= rankedArticles.size()) {
+
+
                         // Fetch the article ID by title (could optimize if title-to-ID map exists)
                         String selectedTitle = rankedArticles.get(choice - 1);
                         int articleId = getArticleIdByTitle(selectedTitle);
+                        // Get the scores for the selected article
+                        Map<String, Integer> articleScores = getArticleScores(articleId);
+                        // Update the user preferences using the article's scores
+                        setUserPreferences(userId, articleScores);
                         if (articleId != -1) {
                             displayArticles(articleId,userId);
                         }
                     }
                     return; // Exit early since ranked articles are displayed
                 }
+
             }
 
             // Default behavior: Display all articles if no preferences exist or no ranked articles
@@ -202,13 +192,40 @@ public class Webscraper {
                 System.out.println("Select an article by number (or 0 to exit): ");
                 int choice = scanner.nextInt();
                 if (choice != 0 && articleMap.containsKey(choice)) {
-                    displayArticles(articleMap.get(choice),userId);
+                    System.out.println("sample testingggggggg");
+                    int articleId=articleMap.get(choice);
+                    Map<String, Integer> articleScores = getArticleScores(articleId);
+                    // Update the user preferences using the article's scores
+                    setUserPreferences(userId, articleScores);
+                    displayArticles(articleId,userId);
                 }
+
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
+    private static Map<String, Integer> getArticleScores(int articleId) {
+        Map<String, Integer> scores = new HashMap<>();
+        String query = "SELECT category, keyword_count FROM article_classification WHERE article_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setInt(1, articleId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    String category = rs.getString("category");
+                    int keywordCount = rs.getInt("keyword_count");
+                    scores.put(category, keywordCount);
+                }
+                System.out.println("Scores for article ID " + articleId + ": " + scores);
+
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return scores;
+    }
+
 
     // Helper method to get an article ID by its title
     private static int getArticleIdByTitle(String title) {
@@ -304,5 +321,31 @@ public class Webscraper {
                 .max(Map.Entry.comparingByValue())
                 .orElseThrow()
                 .getKey();
+    }
+    public static void setUserPreferences(int userId, Map<String, Integer> scores) {
+        String upsertQuery = "INSERT INTO user_preferences (user_id, category, score) " +
+                "VALUES (?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE score = score + VALUES(score)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(upsertQuery)) {
+            // Loop through the category scores and update user preferences
+            for (Map.Entry<String, Integer> entry : scores.entrySet()) {
+                String category = entry.getKey();
+                int score = entry.getValue();
+
+                // Set the parameters for the upsert query
+                pstmt.setInt(1, userId);       // User ID
+                pstmt.setString(2, category); // Category
+                pstmt.setInt(3, score);       // Score
+
+                pstmt.addBatch(); // Add to batch for efficient execution
+            }
+
+            // Execute the batch update
+            pstmt.executeBatch();
+            System.out.println("User preferences updated successfully for user ID: " + userId);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 }
