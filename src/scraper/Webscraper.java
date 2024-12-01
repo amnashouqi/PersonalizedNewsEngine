@@ -25,31 +25,6 @@ public class Webscraper {
         categories.put("Society", new String[]{"society", "education", "community", "rights", "human rights", "inequality", "gender", "poverty", "justice", "social movement", "activism"});
         categories.put("Business", new String[]{"business", "startup", "entrepreneur", "revenue", "profits", "industry", "market trends", "acquisition", "merger", "shareholders", "branding"});
         categories.put("Environment", new String[]{"environment", "climate change", "pollution", "global warming", "renewable", "sustainability", "biodiversity", "deforestation", "carbon", "green energy"});}
-    public static int calculateArticleScore(String content, Map<String, Integer> userPreferences) {
-        int totalScore = 0;
-        String normalizedContent = content.toLowerCase();
-        // Iterate through each category in user preferences
-        for (Map.Entry<String, Integer> entry : userPreferences.entrySet()) {
-            String category = entry.getKey();
-            int preferenceWeight = entry.getValue();
-            // Get the keywords for this category
-            String[] keywords = categories.get(category);
-            if (keywords != null) {
-                int categoryScore = 0;
-                // Calculate keyword frequency in the article content
-                for (String keyword : keywords) {
-                    int index = 0;
-                    while ((index = normalizedContent.indexOf(keyword, index)) != -1) {
-                        categoryScore++;
-                        index += keyword.length(); // Move index forward to avoid infinite loop
-                    }
-                }
-                // Apply user preference weight to category score
-                totalScore += categoryScore * preferenceWeight;
-            }
-        }
-        return totalScore;
-    }
     public static void scrapeArticles(int userId) {
         Map<String, Integer> userPreferences = UserManager.getUserPreferences(userId);
         try {
@@ -61,54 +36,84 @@ public class Webscraper {
                 String url = "https://www.aljazeera.com" + article.attr("href");
                 Document articlePage = Jsoup.connect(url).get();
                 String content = articlePage.select(".wysiwyg").text();
-                int articleId = getArticleId(title, url);
+
+                // Save the article to the database
+                int articleId = getArticleId(title);
+                if (articleId == -1) {
+                    // Insert article if not already present and get the ID
+                    articleId = saveArticleToDB(title, content);
+                }
+                //System.out.println("Article ID: " + articleId);
+
                 // Categorize the article for simple keyword matching
                 Map<String, Integer> scores = categorizeArticle(articleId, content);
-                int score = calculateArticleScore(content, userPreferences);
-                System.out.println(title + " - Score: " + score);
-                System.out.println(url);
-                // Save article to DB
-                saveArticleToDB(title, content, scores);
+                //int score = calculateArticleScore(content, userPreferences);
+                //System.out.println(title + " - Score: " + score);
+                //System.out.println(url);
+                saveArticletoDB2(articleId, scores);
+
             }
             System.out.println();
-            displayTitles();
+            displayTitles(userId);
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-    public static int getArticleId(String title, String url) {
+    //to decide on the order of displaying articles for a returning user
+    public static List<String> rankArticlesForUser(int userId) {
+        List<String> rankedArticles = new ArrayList<>();
+        try (Connection conn = DBConnection.getConnection()) {
+            // Retrieve user preferences
+            Map<String, Integer> userPreferences = UserManager.getUserPreferences(userId);
+            // Build SQL query to rank articles by keyword count for preferred categories
+            String query = """
+            SELECT a.title, SUM(ac.keyword_count) AS total_score
+            FROM Articles a
+            JOIN article_classification ac ON a.id = ac.article_id
+            WHERE ac.category IN (%s)
+            GROUP BY a.id
+            ORDER BY total_score DESC
+        """;
+            // Prepare category placeholders dynamically
+            String categories = String.join(",", Collections.nCopies(userPreferences.size(), "?"));
+            query = String.format(query, categories);
+            try (PreparedStatement pstmt = conn.prepareStatement(query)) {
+                // Set user-preferred categories in the query
+                int index = 1;
+                for (String category : userPreferences.keySet()) {
+                    pstmt.setString(index++, category);
+                }
+                ResultSet rs = pstmt.executeQuery();
+                while (rs.next()) {
+                    rankedArticles.add(rs.getString("title")); // Add titles to the result list
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return rankedArticles;
+    }
+    public static int getArticleId(String title) {
         int articleId = -1;
         try (Connection conn = DBConnection.getConnection()) {
             // Check if the article already exists
-            String selectQuery = "SELECT id FROM Articles WHERE title = ? AND url = ?";
+            String selectQuery = "SELECT id FROM Articles WHERE title = ?";
             try (PreparedStatement pstmt = conn.prepareStatement(selectQuery)) {
                 pstmt.setString(1, title);
-                pstmt.setString(2, url);
+                //pstmt.setString(2, url);
                 ResultSet rs = pstmt.executeQuery();
                 if (rs.next()) {
                     articleId = rs.getInt("id");
                     return articleId;  // Article already exists, return its ID
                 }
             }
-            // If the article doesn't exist, insert it
-            String insertQuery = "INSERT INTO Articles (title, url) VALUES (?, ?)";
-            try (PreparedStatement pstmt = conn.prepareStatement(insertQuery, Statement.RETURN_GENERATED_KEYS)) {
-                pstmt.setString(1, title);
-                pstmt.setString(2, url);
-                pstmt.executeUpdate();
-                // Get the generated ID
-                try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
-                    if (generatedKeys.next()) {
-                        articleId = generatedKeys.getInt(1);  // Get the generated ID
-                    }
-                }
-            }
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
         return articleId;
     }
-    public static void displayArticles(int articleId) {
+    public static void displayArticles(int articleId, int userId) {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement("SELECT title, content FROM Articles WHERE id = ?")) {
             pstmt.setInt(1, articleId); // Use PreparedStatement to prevent SQL injection
@@ -123,7 +128,7 @@ public class Webscraper {
                 System.out.println("Do you want to read more articles? (enter 1 for yes, 2 for no): ");
                 int yesNo = scanner.nextInt();
                 if (yesNo == 1) {
-                    displayTitles();
+                    displayTitles(userId);
                 }
                 else{
                     clearExistingNews();
@@ -140,35 +145,87 @@ public class Webscraper {
         try (Connection conn = DBConnection.getConnection();
              Statement stmt = conn.createStatement()) {
             String query = "DELETE FROM Articles";
+            stmt.executeUpdate(query);  // Use executeUpdate for data modification queries
+            //System.out.println("Deleted old article data");
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-    public static void displayTitles() {
-        try (Connection conn = DBConnection.getConnection();
-             Statement stmt = conn.createStatement()) {
-            String query = "SELECT id, title FROM Articles";
-            ResultSet rs = stmt.executeQuery(query);
-            System.out.println("Available Articles:");
-            Map<Integer, Integer> articleMap = new HashMap<>();
-            int index = 1;
-            while (rs.next()) {
-                int id = rs.getInt("id");
-                String title = rs.getString("title");
-                articleMap.put(index, id);
-                System.out.println(index + ": " + title);
-                index++;
+
+    public static void displayTitles(int userId) {
+        try (Connection conn = DBConnection.getConnection()) {
+            // Check if user preferences exist and have a score > 0
+            Map<String, Integer> userPreferences = UserManager.getUserPreferences(userId);
+            boolean hasPreferences = userPreferences.values().stream().anyMatch(score -> score > 0);
+
+            if (hasPreferences) {
+                // Rank articles based on user preferences
+                List<String> rankedArticles = rankArticlesForUser(userId);
+                if (!rankedArticles.isEmpty()) {
+                    System.out.println("Available Articles (Ranked):");
+                    int index = 1;
+                    for (String title : rankedArticles) {
+                        System.out.println(index + ": " + title);
+                        index++;
+                    }
+                    Scanner scanner = new Scanner(System.in);
+                    System.out.println("use preference included");
+                    System.out.println("Select an article by number (or 0 to exit): ");
+                    int choice = scanner.nextInt();
+                    if (choice != 0 && choice <= rankedArticles.size()) {
+                        // Fetch the article ID by title (could optimize if title-to-ID map exists)
+                        String selectedTitle = rankedArticles.get(choice - 1);
+                        int articleId = getArticleIdByTitle(selectedTitle);
+                        if (articleId != -1) {
+                            displayArticles(articleId,userId);
+                        }
+                    }
+                    return; // Exit early since ranked articles are displayed
+                }
             }
-            Scanner scanner = new Scanner(System.in);
-            System.out.println("Select an article by number (or 0 to exit): ");
-            int choice = scanner.nextInt();
-            if (choice != 0 && articleMap.containsKey(choice)) {
-                displayArticles(articleMap.get(choice));
+
+            // Default behavior: Display all articles if no preferences exist or no ranked articles
+            try (Statement stmt = conn.createStatement()) {
+                String query = "SELECT id, title FROM Articles";
+                ResultSet rs = stmt.executeQuery(query);
+                System.out.println("Available Articles:");
+                Map<Integer, Integer> articleMap = new HashMap<>();
+                int index = 1;
+                while (rs.next()) {
+                    int id = rs.getInt("id");
+                    String title = rs.getString("title");
+                    articleMap.put(index, id);
+                    System.out.println(index + ": " + title);
+                    index++;
+                }
+                Scanner scanner = new Scanner(System.in);
+                System.out.println("Select an article by number (or 0 to exit): ");
+                int choice = scanner.nextInt();
+                if (choice != 0 && articleMap.containsKey(choice)) {
+                    displayArticles(articleMap.get(choice),userId);
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
+
+    // Helper method to get an article ID by its title
+    private static int getArticleIdByTitle(String title) {
+        int articleId = -1;
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement("SELECT id FROM Articles WHERE title = ?")) {
+            pstmt.setString(1, title);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                articleId = rs.getInt("id");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return articleId;
+    }
+
     private static Map<String, Integer> categorizeArticle(int articleId, String content) {
         content = content.toLowerCase(); // Convert to lowercase for easier matching
         Map<String, Integer> scores = new HashMap<>();
@@ -189,7 +246,7 @@ public class Webscraper {
         }
         return scores;
     }
-    private static void saveArticleToDB(String title, String content, Map<String, Integer> scores) {
+    private static int saveArticleToDB(String title, String content) {
         // SQL query to insert article into the Articles table
         String articleSql = "INSERT INTO Articles (title, content) VALUES (?, ?)";
         try (Connection conn = DBConnection.getConnection();
@@ -197,23 +254,35 @@ public class Webscraper {
             // Set the article title and content
             pstmt.setString(1, title);
             pstmt.setString(2, content);
-            pstmt.executeUpdate();
-            // Get the generated article ID
-            ResultSet rs = pstmt.getGeneratedKeys();
-            if (rs.next()) {
-                int articleId = rs.getInt(1); // Get the generated article ID
-                // Insert or update the article classification for each category in the scores map
-                for (Map.Entry<String, Integer> entry : scores.entrySet()) {
-                    String category = entry.getKey();
-                    int keywordCount = entry.getValue();
-                    // Insert or update the classification record in the article_classification table
-                    saveArticleClassification(articleId, category, keywordCount);
+
+            // Execute the update
+            int affectedRows = pstmt.executeUpdate();
+
+            // Check if insertion was successful
+            if (affectedRows > 0) {
+                // Retrieve the generated key (article ID)
+                try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
+                    if (generatedKeys.next()) {
+                        return generatedKeys.getInt(1); // Return the generated article ID
+                    }
                 }
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
+        return -1; // Return -1 if something went wrong
     }
+
+    private static void saveArticletoDB2(int articleId, Map<String, Integer> scores) {
+        // Insert or update the article classification for each category in the scores map
+        for (Map.Entry<String, Integer> entry : scores.entrySet()) {
+            String category = entry.getKey();
+            int keywordCount = entry.getValue();
+            // Insert or update the classification record in the article_classification table
+            saveArticleClassification(articleId, category, keywordCount);
+        }
+    }
+
     private static void saveArticleClassification(int articleId, String category, int keywordCount) {
         // SQL query to insert or update the article classification
         String sql = "INSERT INTO article_classification (article_id, category, keyword_count) " +

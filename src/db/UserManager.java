@@ -47,7 +47,7 @@ public class UserManager {
     public static Map<String, Integer> getUserPreferences(int userId) {
         Map<String, Integer> userPreferences = new HashMap<>();
 
-        String query = "SELECT category, preference_weight FROM UserPreferences WHERE user_id = ?";
+        String query = "SELECT category, score FROM user_preferences WHERE user_id = ?";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
@@ -57,7 +57,7 @@ public class UserManager {
 
             while (rs.next()) {
                 String category = rs.getString("category");
-                int preferenceWeight = rs.getInt("preference_weight");
+                int preferenceWeight = rs.getInt("score");
                 userPreferences.put(category, preferenceWeight);
             }
 
@@ -66,6 +66,10 @@ public class UserManager {
         }
 
         return userPreferences;
+    }
+
+    public static void setUserPreferences(int userId, int scores){
+        //method to update the user preference table with the scores of the categories of a specific article. This method will be called any time the user views an article
     }
 
 
