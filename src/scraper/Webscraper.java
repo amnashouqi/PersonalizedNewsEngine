@@ -11,8 +11,11 @@ import java.sql.Connection;
 import java.util.*;
 
 import static db.UserManager.*;
+import static model.Article.*;
+import static model.User.*;
 
 public class Webscraper {
+
     private static Map<String, String[]> categories = new HashMap<>();
     static {
         categories.put("Politics", new String[]{"politics", "government", "election", "parliament", "policy", "democracy", "legislation", "president", "congress", "prime minister"});
@@ -105,116 +108,8 @@ public class Webscraper {
         return rankedArticles;
     }
 
-    public static void displayArticles(int articleId, int userId) {
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement("SELECT title, content FROM Articles WHERE id = ?")) {
-            pstmt.setInt(1, articleId); // Use PreparedStatement to prevent SQL injection
-            ResultSet rs = pstmt.executeQuery();
-            if (rs.next()) {
-                String title = rs.getString("title");
-                String content = rs.getString("content");
-                System.out.println("\n--- Article Details ---");
-                System.out.println("Title: " + title);
-                System.out.println("Content: " + content);
-                Scanner scanner = new Scanner(System.in);
-                System.out.println("Do you want to read more articles? (enter 1 for yes, 2 for no): ");
-                int yesNo = scanner.nextInt();
-                if (yesNo == 1) {
-                    displayTitles(userId);
-                }
-                else{
-                    clearExistingNews();
-                    System.out.println("cleaning inside the loop");
-                }
-            } else {
-                System.out.println("Article not found.");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-    public static void clearExistingNews() {
-        try (Connection conn = DBConnection.getConnection();
-             Statement stmt = conn.createStatement()) {
-            String query = "DELETE FROM Articles";
-            stmt.executeUpdate(query);  // Use executeUpdate for data modification queries
-            //System.out.println("Deleted old article data");
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
-    public static void displayTitles(int userId) {
-        try (Connection conn = DBConnection.getConnection()) {
-            // Check if user preferences exist and have a score > 0
-            Map<String, Integer> userPreferences = UserManager.getUserPreferences(userId);
-            boolean hasPreferences = userPreferences.values().stream().anyMatch(score -> score > 0);
-
-            if (hasPreferences) {
-                // Rank articles based on user preferences
-                List<String> rankedArticles = rankArticlesForUser(userId);
-                if (!rankedArticles.isEmpty()) {
-                    System.out.println("Available Articles (Ranked):");
-                    int index = 1;
-                    for (String title : rankedArticles) {
-                        System.out.println(index + ": " + title);
-                        index++;
-                    }
-                    Scanner scanner = new Scanner(System.in);
-                    System.out.println("use preference included");
-                    System.out.println("Select an article by number (or 0 to exit): ");
-                    int choice = scanner.nextInt();
-                    if (choice != 0 && choice <= rankedArticles.size()) {
-
-
-                        // Fetch the article ID by title (could optimize if title-to-ID map exists)
-                        String selectedTitle = rankedArticles.get(choice - 1);
-                        int articleId = getArticleIdByTitle(selectedTitle);
-                        // Get the scores for the selected article
-                        Map<String, Integer> articleScores = getArticleScores(articleId);
-                        // Update the user preferences using the article's scores
-                        setUserPreferences(userId, articleScores);
-                        if (articleId != -1) {
-                            displayArticles(articleId,userId);
-                        }
-                    }
-                    return; // Exit early since ranked articles are displayed
-                }
-
-            }
-
-            // Default behavior: Display all articles if no preferences exist or no ranked articles
-            try (Statement stmt = conn.createStatement()) {
-                String query = "SELECT id, title FROM Articles";
-                ResultSet rs = stmt.executeQuery(query);
-                System.out.println("Available Articles:");
-                Map<Integer, Integer> articleMap = new HashMap<>();
-                int index = 1;
-                while (rs.next()) {
-                    int id = rs.getInt("id");
-                    String title = rs.getString("title");
-                    articleMap.put(index, id);
-                    System.out.println(index + ": " + title);
-                    index++;
-                }
-                Scanner scanner = new Scanner(System.in);
-                System.out.println("Select an article by number (or 0 to exit): ");
-                int choice = scanner.nextInt();
-                if (choice != 0 && articleMap.containsKey(choice)) {
-                    System.out.println("sample testingggggggg");
-                    int articleId=articleMap.get(choice);
-                    Map<String, Integer> articleScores = getArticleScores(articleId);
-                    // Update the user preferences using the article's scores
-                    setUserPreferences(userId, articleScores);
-                    displayArticles(articleId,userId);
-                }
-
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-    private static Map<String, Integer> getArticleScores(int articleId) {
+    public static Map<String, Integer> getArticleScores(int articleId) {
         Map<String, Integer> scores = new HashMap<>();
         String query = "SELECT category, keyword_count FROM article_classification WHERE article_id = ?";
         try (Connection conn = DBConnection.getConnection();
@@ -237,7 +132,7 @@ public class Webscraper {
 
 
     // Helper method to get an article ID by its title
-    private static int getArticleIdByTitle(String title) {
+    public static int getArticleIdByTitle(String title) {
         int articleId = -1;
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement("SELECT id FROM Articles WHERE title = ?")) {
@@ -252,7 +147,7 @@ public class Webscraper {
         return articleId;
     }
 
-    private static Map<String, Integer> categorizeArticle(int articleId, String content) {
+    public static Map<String, Integer> categorizeArticle(int articleId, String content) {
         content = content.toLowerCase(); // Convert to lowercase for easier matching
         Map<String, Integer> scores = new HashMap<>();
         // Calculate scores for each category
@@ -272,7 +167,7 @@ public class Webscraper {
         }
         return scores;
     }
-    private static int saveArticleToDB(String title, String content) {
+    public static int saveArticleToDB(String title, String content) {
         // SQL query to insert article into the Articles table
         String articleSql = "INSERT INTO Articles (title, content) VALUES (?, ?)";
         try (Connection conn = DBConnection.getConnection();
@@ -299,7 +194,7 @@ public class Webscraper {
         return -1; // Return -1 if something went wrong
     }
 
-    private static void saveArticletoDB2(int articleId, Map<String, Integer> scores) {
+    public static void saveArticletoDB2(int articleId, Map<String, Integer> scores) {
         // Insert or update the article classification for each category in the scores map
         for (Map.Entry<String, Integer> entry : scores.entrySet()) {
             String category = entry.getKey();
@@ -309,7 +204,7 @@ public class Webscraper {
         }
     }
 
-    private static void saveArticleClassification(int articleId, String category, int keywordCount) {
+    public static void saveArticleClassification(int articleId, String category, int keywordCount) {
         // SQL query to insert or update the article classification
         String sql = "INSERT INTO article_classification (article_id, category, keyword_count) " +
                 "VALUES (?, ?, ?) " +
@@ -325,36 +220,10 @@ public class Webscraper {
             e.printStackTrace();
         }
     }
-    private static String getTopCategory(Map<String, Integer> scores) {
+    public static String getTopCategory(Map<String, Integer> scores) {
         return scores.entrySet().stream()
                 .max(Map.Entry.comparingByValue())
                 .orElseThrow()
                 .getKey();
-    }
-    public static void setUserPreferences(int userId, Map<String, Integer> scores) {
-        String upsertQuery = "INSERT INTO user_preferences (user_id, category, score) " +
-                "VALUES (?, ?, ?) " +
-                "ON DUPLICATE KEY UPDATE score = score + VALUES(score)";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(upsertQuery)) {
-            // Loop through the category scores and update user preferences
-            for (Map.Entry<String, Integer> entry : scores.entrySet()) {
-                String category = entry.getKey();
-                int score = entry.getValue();
-
-                // Set the parameters for the upsert query
-                pstmt.setInt(1, userId);       // User ID
-                pstmt.setString(2, category); // Category
-                pstmt.setInt(3, score);       // Score
-
-                pstmt.addBatch(); // Add to batch for efficient execution
-            }
-
-            // Execute the batch update
-            pstmt.executeBatch();
-            System.out.println("User preferences updated successfully for user ID: " + userId);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
     }
 }

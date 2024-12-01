@@ -67,9 +67,30 @@ public class UserManager {
 
         return userPreferences;
     }
+    public static void setUserPreferences(int userId, Map<String, Integer> scores) {
+        String upsertQuery = "INSERT INTO user_preferences (user_id, category, score) " +
+                "VALUES (?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE score = score + VALUES(score)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(upsertQuery)) {
+            // Loop through the category scores and update user preferences
+            for (Map.Entry<String, Integer> entry : scores.entrySet()) {
+                String category = entry.getKey();
+                int score = entry.getValue();
 
+                // Set the parameters for the upsert query
+                pstmt.setInt(1, userId);       // User ID
+                pstmt.setString(2, category); // Category
+                pstmt.setInt(3, score);       // Score
 
+                pstmt.addBatch(); // Add to batch for efficient execution
+            }
 
-
-
+            // Execute the batch update
+            pstmt.executeBatch();
+            System.out.println("User preferences updated successfully for user ID: " + userId);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
 }

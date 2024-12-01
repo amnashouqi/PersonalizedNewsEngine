@@ -1,11 +1,13 @@
 import db.UserManager;
 import model.User;
+import model.Article;
 import scraper.Webscraper;
 import scraper.Webscraper;
 
 import java.util.Scanner;
 
-import static scraper.Webscraper.clearExistingNews;
+import static db.DBConnection.clearExistingNews;
+
 
 public class Main {
     public static void main(String[] args) {
