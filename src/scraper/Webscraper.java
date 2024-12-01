@@ -68,24 +68,32 @@ public class Webscraper {
         try (Connection conn = DBConnection.getConnection()) {
             // Retrieve user preferences
             Map<String, Integer> userPreferences = UserManager.getUserPreferences(userId);
-            // Build SQL query to rank articles by keyword count for preferred categories
+
+            // Prepare the SQL query to rank articles by keyword count for preferred categories
             String query = """
-            SELECT a.title, SUM(ac.keyword_count) AS total_score
-            FROM Articles a
-            JOIN article_classification ac ON a.id = ac.article_id
-            WHERE ac.category IN (%s)
-            GROUP BY a.id
-            ORDER BY total_score DESC
+        SELECT a.title, SUM(ac.keyword_count * up.score) AS total_score
+        FROM Articles a
+        JOIN article_classification ac ON a.id = ac.article_id
+        JOIN user_preferences up ON ac.category = up.category AND up.user_id = ?
+        WHERE ac.category IN (%s)
+        GROUP BY a.id
+        ORDER BY total_score DESC
         """;
+
             // Prepare category placeholders dynamically
             String categories = String.join(",", Collections.nCopies(userPreferences.size(), "?"));
             query = String.format(query, categories);
+
             try (PreparedStatement pstmt = conn.prepareStatement(query)) {
                 // Set user-preferred categories in the query
                 int index = 1;
+                pstmt.setInt(index++, userId); // Set the user ID in the query
+
+                // Set categories dynamically
                 for (String category : userPreferences.keySet()) {
                     pstmt.setString(index++, category);
                 }
+
                 ResultSet rs = pstmt.executeQuery();
                 while (rs.next()) {
                     rankedArticles.add(rs.getString("title")); // Add titles to the result list
@@ -96,6 +104,7 @@ public class Webscraper {
         }
         return rankedArticles;
     }
+
     public static void displayArticles(int articleId, int userId) {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement("SELECT title, content FROM Articles WHERE id = ?")) {
