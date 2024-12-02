@@ -7,9 +7,14 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.locks.*;
 
 public class UserManager {
+    private static final ReentrantLock lock = new ReentrantLock();
+    private static final Map<Integer, ReentrantLock> userLocks = new ConcurrentHashMap<>();
     public static boolean registerUser(User user) {
+        lock.lock();
         try (Connection conn = DBConnection.getConnection()) {
             String query = "INSERT INTO Users (username, password) VALUES (?, ?)";
             PreparedStatement stmt = conn.prepareStatement(query);
@@ -19,6 +24,8 @@ public class UserManager {
         } catch (Exception e) {
             e.printStackTrace();
             return false;
+        }finally {
+            lock.unlock();  // Always unlock in the finally block
         }
     }
 
@@ -67,6 +74,9 @@ public class UserManager {
         return userPreferences;
     }
     public static void setUserPreferences(int userId, Map<String, Integer> scores) {
+        userLocks.putIfAbsent(userId, new ReentrantLock());
+        ReentrantLock userLock = userLocks.get(userId);
+        userLock.lock();
         String upsertQuery = "INSERT INTO user_preferences (user_id, category, score) " +
                 "VALUES (?, ?, ?) " +
                 "ON DUPLICATE KEY UPDATE score = score + VALUES(score)";
@@ -90,10 +100,13 @@ public class UserManager {
             System.out.println("User preferences updated successfully for user ID: " + userId);
         } catch (SQLException e) {
             e.printStackTrace();
+        } finally {
+            userLock.unlock();  // Always unlock in the finally block
         }
     }
 
     public static List<String> rankArticlesForUser(int userId) {
+        lock.lock();
         List<String> rankedArticles = new ArrayList<>();
         try (Connection conn = DBConnection.getConnection()) {
             // Retrieve user preferences
@@ -131,6 +144,8 @@ public class UserManager {
             }
         } catch (SQLException e) {
             e.printStackTrace();
+        } finally {
+            lock.unlock();
         }
         return rankedArticles;
     }

@@ -56,14 +56,14 @@ public class Article {
                         userRates(userId, articleId);
                         System.out.println();
                     }else if(RateOrNo.equalsIgnoreCase("N")){
-                        userRates(userId, articleId);
+                        System.out.println("Algorithm is sad without your rating 🥲");
                         System.out.println();
                     }else{
                         System.out.println("Invalid preference entered. ");
                     }
                 }
                 else{
-                    System.out.println("your like or no button isnt working");
+                    //System.out.println("your like or no button isn't working");
                 }
                 Scanner scanner = new Scanner(System.in);
                 System.out.println("Do you want to read more articles? (enter 1 for yes, 2 for no): ");

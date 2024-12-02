@@ -32,10 +32,18 @@ public class Main {
             }
         };
 
-        // Submit the task to ExecutorService to handle it concurrently
-        concurrencyHandler.submitTask(task);
+        // Submit the task and wait for its completion
+        Future<?> future = concurrencyHandler.submitTask(task);
+        try {
+            future.get(); // Wait for task completion
+        } catch (Exception e) {
+            System.err.println("Error while executing task: " + e.getMessage());
+            e.printStackTrace();
+        }
+        System.exit(0); // Terminates the program
 
-        addShutdownHook();
+
+
     }
 
     private static void handleRegistration(Scanner scanner){
@@ -48,6 +56,7 @@ public class Main {
 
         if (UserManager.registerUser(user)) {
             System.out.println("🎉 Yasss! Welcome aboard, "+username+"! You’re officially part of our news-hungry community!");
+            System.out.println();
 
             concurrencyHandler.submitTask(() -> handleLogin(scanner));
 
@@ -58,14 +67,14 @@ public class Main {
 
     private static void handleLogin(Scanner scanner){
 
-        System.out.print("Welcome back, hero! Enter your username to unlock your news: ");
+        System.out.print("Enter your username to unlock your news: ");
         String username = scanner.nextLine();
-        System.out.print("Your secret code, please. (We promise to keep it safe): ");
+        System.out.print("Your secret code, please: ");
         String password = scanner.nextLine();
 
         int userId = UserManager.loginUser(username, password);
         if (userId != -1) {
-            System.out.println("Welcome back, "+username+"! It’s good to see you again. Your personalized news awaits!");
+            System.out.println("It’s good to see you again "+username+"!. Your personalized news awaits!");
             Webscraper.scrapeArticles(userId); // Pass the userId to scrapeArticles
         } else {
             System.out.println("Oops! That didn’t work. Double-check your username and password, and try again!");
@@ -75,14 +84,16 @@ public class Main {
         System.out.println();
         System.out.println("And that’s a wrap! Thanks for visiting, "+username+". Catch you on the flip side. 😎");
 
+
     }
 
     // Graceful shutdown of ExecutorService
-    // Graceful shutdown of ExecutorService
-    private static void addShutdownHook() {
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            concurrencyHandler.shutdown();
-        }));
-    }
+//    private static void addShutdownHook() {
+//        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+//            System.out.println("Shutdown hook triggered. Cleaning up...");
+//            concurrencyHandler.shutdown();
+//        }));
+//    }
+
 
 }

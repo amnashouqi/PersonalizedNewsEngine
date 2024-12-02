@@ -15,7 +15,7 @@ public class DBConnection {
         return DriverManager.getConnection(URL, USER, PASSWORD);
     }
 
-    public static void clearExistingNews() {
+    public synchronized static void clearExistingNews() {
         try (Connection conn = DBConnection.getConnection();
              Statement stmt = conn.createStatement()) {
             String query = "DELETE FROM Articles";
