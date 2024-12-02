@@ -174,8 +174,7 @@ public class User {
 
     public static void userRates(int userId, int articleId) {
         // SQL queries
-        String fetchCategoriesQuery = "SELECT category FROM article_classification WHERE article_id = ?";
-        String fetchCurrentScoreQuery = "SELECT score FROM user_preferences WHERE user_id = ? AND category = ?";
+        String fetchCategoriesQuery = "SELECT category, keyword_count FROM article_classification WHERE article_id = ?";
         String updatePreferencesQuery = """
         INSERT INTO user_preferences (user_id, category, score)
         VALUES (?, ?, ?)
@@ -184,10 +183,9 @@ public class User {
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement fetchCategoriesStmt = conn.prepareStatement(fetchCategoriesQuery);
-             PreparedStatement fetchScoreStmt = conn.prepareStatement(fetchCurrentScoreQuery);
              PreparedStatement updateStmt = conn.prepareStatement(updatePreferencesQuery)) {
 
-            // Fetch the categories associated with the article
+            // Fetch the categories and scores associated with the article
             fetchCategoriesStmt.setInt(1, articleId);
             ResultSet rs = fetchCategoriesStmt.executeQuery();
 
@@ -204,12 +202,10 @@ public class User {
             double multiplier;
             if (rating == 6) {
                 multiplier = 1; // No impact for a neutral rating
-
             } else if (rating > 6) {
                 multiplier = 1 + (rating - 6) * 0.5; // Increment by 0.5 per step above 6
                 System.out.println("Top contender right here! This article just leveled up.");
             } else {
-                // For ratings below 6 (but not 5), reduce the multiplier, making it negative for scores below 5
                 multiplier = 1 - (6 - rating) * 0.2; // Decrease multiplier for negative ratings (below 6)
                 System.out.println("Don’t worry, we are working hard behind the scenes to find your favorites!");
             }
@@ -217,16 +213,7 @@ public class User {
             // Iterate over categories and update scores
             while (rs.next()) {
                 String category = rs.getString("category");
-
-                // Fetch current score for the category
-                fetchScoreStmt.setInt(1, userId);
-                fetchScoreStmt.setString(2, category);
-                ResultSet scoreRs = fetchScoreStmt.executeQuery();
-
-                int currentScore = 0;
-                if (scoreRs.next()) {
-                    currentScore = scoreRs.getInt("score");
-                }
+                int currentScore = rs.getInt("keyword_count"); // Fetch the score directly from article_classification
 
                 // Apply multiplier and calculate new score
                 int roundedScore = (int) Math.round(currentScore * multiplier);
@@ -243,10 +230,11 @@ public class User {
 
             // Execute batch update
             updateStmt.executeBatch();
-            //System.out.println("User rating updated successfully for user ID: " + userId);
+            System.out.println("User rating updated successfully for user ID: " + userId);
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
+
 
 }
