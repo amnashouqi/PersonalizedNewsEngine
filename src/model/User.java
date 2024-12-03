@@ -9,6 +9,8 @@ import java.sql.SQLException;
 import java.util.Map;
 import java.util.Scanner;
 
+import static db.UserManager.updateInteractionScore;
+
 public class User {
     private int id;
     private String username;
@@ -83,6 +85,7 @@ public class User {
                 updateStmt.setInt(4, impactOfALike); // Increment score if exists
                 updateStmt.addBatch(); // Add to batch
             }
+            updateInteractionScore(userId, articleId, 5.0f); // 5.0 for like
 
             // Execute the batch update
             updateStmt.executeBatch();
@@ -124,6 +127,7 @@ public class User {
                 updateStmt.setInt(4, impactOfADislike); // Decrement score if exists
                 updateStmt.addBatch(); // Add to batch
             }
+            updateInteractionScore(userId, articleId, -5.0f); // -5.0 for dislike
 
             // Execute the batch update
             updateStmt.executeBatch();
@@ -163,6 +167,7 @@ public class User {
                 updateStmt.setInt(4, impactOfASkip); // Decrement score if exists
                 updateStmt.addBatch(); // Add to batch
             }
+            updateInteractionScore(userId, articleId, -1.0f);
 
             // Execute the batch update
             updateStmt.executeBatch();
@@ -202,11 +207,16 @@ public class User {
             double multiplier;
             if (rating == 6) {
                 multiplier = 1; // No impact for a neutral rating
+                updateInteractionScore(userId, articleId, 0.0f); // 0.0 for neutral
+
             } else if (rating > 6) {
                 multiplier = 1 + (rating - 6) * 0.5; // Increment by 0.5 per step above 6
                 System.out.println("Top contender right here! This article just leveled up.");
+                updateInteractionScore(userId, articleId, (rating-3));
+
             } else {
                 multiplier = 1 - (6 - rating) * 0.2; // Decrease multiplier for negative ratings (below 6)
+                updateInteractionScore(userId, articleId, rating-5); // 0.0 for dislike
                 System.out.println("Don’t worry, we are working hard behind the scenes to find your favorites!");
             }
 

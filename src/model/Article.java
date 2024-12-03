@@ -27,6 +27,7 @@ public class Article {
              PreparedStatement pstmt = conn.prepareStatement("SELECT title, content FROM Articles WHERE id = ?")) {
             pstmt.setInt(1, articleId); // Use PreparedStatement to prevent SQL injection
             ResultSet rs = pstmt.executeQuery();
+            updateInteractionScore(userId, articleId, 1.0f); // 0.0 for dislike
             if (rs.next()) {
                 String title = rs.getString("title");
                 String content = rs.getString("content");
@@ -160,9 +161,7 @@ public class Article {
                             userSkips(userId, idToCheck);
                         }
                     }
-
                 }
-
             }
         } catch (SQLException e) {
             e.printStackTrace();

@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/FINALCW_AMNA.iml" filepath="$PROJECT_DIR$/FINALCW_AMNA.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/FINALCW_AMNA.iml" filepath="$PROJECT_DIR$/.idea/FINALCW_AMNA.iml" />
     </modules>
   </component>
 </project>

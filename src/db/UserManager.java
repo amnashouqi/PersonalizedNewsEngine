@@ -2,6 +2,9 @@ package db;
 
 import model.User;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -149,4 +152,49 @@ public class UserManager {
         }
         return rankedArticles;
     }
+    public static void updateInteractionScore(int userId, int articleId, float interactionScore) {
+        String updateQuery = "INSERT INTO user_article_interactions (user_id, article_id, interaction) " +
+                "VALUES (?, ?, ?) " +
+                "ON DUPLICATE KEY UPDATE interaction = interaction + ?"; // Add to existing interaction score
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(updateQuery)) {
+
+            pstmt.setInt(1, userId); // Set user_id
+            pstmt.setInt(2, articleId); // Set article_id
+            pstmt.setFloat(3, interactionScore); // Set the new interaction score (for new record)
+            pstmt.setFloat(4, interactionScore); // Add the interaction score to the existing value
+
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void PythonIntegration(){
+        try {
+            // Specify the Python script path and Python executable
+            String pythonScriptPath = "MLmodel.py"; // Update with your Python script's path
+            String pythonExecutable = "python";  // Or specify full path to your python executable if needed
+
+            // Create a process to run the Python script
+            ProcessBuilder processBuilder = new ProcessBuilder(pythonExecutable, pythonScriptPath);
+            processBuilder.redirectErrorStream(true); // Redirect error to output stream
+            Process process = processBuilder.start();  // Start the process
+
+            // Capture output of the Python script
+            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                System.out.println(line);  // Print output of Python script to Java console
+            }
+
+            // Wait for the Python process to complete
+            int exitCode = process.waitFor();
+            System.out.println("Python script executed with exit code: " + exitCode);
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
 }
