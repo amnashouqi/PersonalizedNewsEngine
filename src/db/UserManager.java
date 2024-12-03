@@ -12,8 +12,13 @@ import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.*;
+import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 
 public class UserManager {
+    private static final double CONTENT_WEIGHT = 0.5;
+    private static final double COLLABORATIVE_WEIGHT = 0.5;
     private static final ReentrantLock lock = new ReentrantLock();
     private static final Map<Integer, ReentrantLock> userLocks = new ConcurrentHashMap<>();
     public static boolean registerUser(User user) {
@@ -171,14 +176,15 @@ public class UserManager {
         }
     }
 
-    public static void PythonIntegration(){
+    public static List<String> PythonIntegration(int userId) {
+        List<String> recommendations = new ArrayList<>();
         try {
             // Specify the Python script path and Python executable
             String pythonScriptPath = "MLmodel.py"; // Update with your Python script's path
             String pythonExecutable = "python";  // Or specify full path to your python executable if needed
 
-            // Create a process to run the Python script
-            ProcessBuilder processBuilder = new ProcessBuilder(pythonExecutable, pythonScriptPath);
+            // Create a process to run the Python script with the userId as an argument
+            ProcessBuilder processBuilder = new ProcessBuilder(pythonExecutable, pythonScriptPath, String.valueOf(userId));
             processBuilder.redirectErrorStream(true); // Redirect error to output stream
             Process process = processBuilder.start();  // Start the process
 
@@ -186,7 +192,9 @@ public class UserManager {
             BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
             String line;
             while ((line = reader.readLine()) != null) {
-                System.out.println(line);  // Print output of Python script to Java console
+                // Assuming the Python script prints the recommendations as a JSON array
+                // For example: ["101", "102", "103"]
+                recommendations.add(line);  // Add the line to the list (you may need to parse this)
             }
 
             // Wait for the Python process to complete
@@ -195,6 +203,36 @@ public class UserManager {
         } catch (IOException | InterruptedException e) {
             e.printStackTrace();
         }
+
+        // Assuming the Python script prints a list of article IDs in JSON format
+        // You might need to parse the string properly if it's returned in a non-plain format.
+        return recommendations;
     }
 
+    public static List<String> hybridRecommendations(int userId) {
+        List<String> contentBased = rankArticlesForUser(userId);  // Content-based recommendations
+        List<String> collaborative = PythonIntegration(userId);  // Collaborative filtering via Python
+
+        // Combine and rank
+        Map<String, Double> hybridScores = new HashMap<>();
+
+        // Add content-based scores
+        for (String article : contentBased) {
+            hybridScores.put(article, hybridScores.getOrDefault(article, 0.0) + CONTENT_WEIGHT);
+        }
+
+        // Add collaborative filtering scores
+        for (String article : collaborative) {
+            hybridScores.put(article, hybridScores.getOrDefault(article, 0.0) + COLLABORATIVE_WEIGHT);
+        }
+
+        // Sort by scores
+        return hybridScores.entrySet().stream()
+                .sorted(Map.Entry.<String, Double>comparingByValue().reversed())
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toList());
+    }
+
+
 }
+

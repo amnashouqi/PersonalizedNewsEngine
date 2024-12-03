@@ -93,7 +93,7 @@ public class Article {
 
             if (hasPreferences) {
                 // Rank articles based on user preferences
-                List<String> rankedArticles = rankArticlesForUser(userId);
+                List<String> rankedArticles = hybridRecommendations(userId);
                 if (!rankedArticles.isEmpty()) {
                     System.out.println("Available Articles (Ranked):");
                     int index = 1;

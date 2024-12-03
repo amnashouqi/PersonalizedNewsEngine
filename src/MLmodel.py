@@ -1,4 +1,6 @@
 import pandas as pd
+import sys
+import json
 from scipy.sparse import csr_matrix
 import pymysql
 from CollaborativeFiltering import CollaborativeFiltering
@@ -30,6 +32,14 @@ def create_user_item_matrix(df):
 
 # Step 3: Main function to run everything
 if __name__ == "__main__":
+    # Check if user_id is provided as an argument
+    if len(sys.argv) < 2:
+        print("Please provide user_id as an argument.")
+        sys.exit(1)
+
+    # Get user_id from command-line argument
+    user_id = int(sys.argv[1])
+
     # Database credentials
     host = "localhost"
     user = "root"
@@ -38,8 +48,8 @@ if __name__ == "__main__":
 
     # Load interaction data
     interaction_data = load_interaction_data(host, user, password, database)
-    print("Loaded Interaction Data:")
-    print(interaction_data.head())
+    #print("Loaded Interaction Data:")
+    #print(interaction_data.head())
 
     # Create user-item matrix
     user_item_matrix, user_map, article_map = create_user_item_matrix(interaction_data)
@@ -51,6 +61,9 @@ if __name__ == "__main__":
     cf.compute_similarity()
 
     # Generate recommendations for a user
-    user_id = 1  # Example user ID
     recommendations = cf.recommend(user_id, top_n=5)
-    print(f"Recommendations for User {user_id}: {recommendations}")
+
+    # Convert recommendations to a list of regular integers to make them serializable
+    recommendations = [int(article) for article in recommendations]
+
+    print(json.dumps(recommendations))
