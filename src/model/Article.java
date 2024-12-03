@@ -33,7 +33,8 @@ public class Article {
                 String content = rs.getString("content");
                 System.out.println("\n--- Article Details ---");
                 System.out.println("Title: " + title);
-                System.out.println("Content: " + content);
+                System.out.println("Content: ");
+                System.out.println(wrapText(content, 110));
                 System.out.println();
                 Scanner scan = new Scanner(System.in);
                 System.out.println("Do you want to either 👍🏽/👎🏽 or Rate the article you just read? (Y/N): ");
@@ -83,6 +84,23 @@ public class Article {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    public static String wrapText(String text, int lineWidth) {
+        String[] words = text.split(" ");
+        StringBuilder wrappedText = new StringBuilder();
+        int lineLength = 0;
+
+        for (String word : words) {
+            if (lineLength + word.length() > lineWidth) {
+                wrappedText.append("\n");
+                lineLength = 0;
+            }
+            wrappedText.append(word).append(" ");
+            lineLength += word.length() + 1;
+        }
+
+        return wrappedText.toString().trim();
     }
 
     public static void displayTitles(int userId) {

@@ -58,8 +58,14 @@ public class Main {
             System.out.println("🎉 Yasss! Welcome aboard, "+username+"! You’re officially part of our news-hungry community!");
             System.out.println();
 
-            concurrencyHandler.submitTask(() -> handleLogin(scanner));
-
+            // Wait for the login task to complete after successful registration
+            Future<?> future = concurrencyHandler.submitTask(() -> handleLogin(scanner));
+            try {
+                future.get(); // Block until the login task completes
+            } catch (Exception e) {
+                System.err.println("Error during login after registration: " + e.getMessage());
+                e.printStackTrace();
+            }
         } else {
             System.out.println("Whoopsie-daisy! Something went wrong with your registration. Try again, and we’ll make it right!");
         }
@@ -80,7 +86,6 @@ public class Main {
             System.out.println("Oops! That didn’t work. Double-check your username and password, and try again!");
         }
         clearExistingNews();
-
         System.out.println();
         System.out.println("And that’s a wrap! Thanks for visiting, "+username+". Catch you on the flip side. 😎");
 
