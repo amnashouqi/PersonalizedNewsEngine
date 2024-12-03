@@ -1,6 +1,8 @@
+package main;
+
+import concurrency.ConcurrencyHandler;
 import db.UserManager;
 import model.User;
-import model.Article;
 import scraper.Webscraper;
 import java.util.concurrent.*;
 import java.util.Scanner;
@@ -11,39 +13,61 @@ public class Main {
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
+
         System.out.println();
         System.out.println("Hold onto your hat! Welcome to your Personalized News Recommendation System! Let’s get you updated!");
         System.out.println();
 
-        // Register or Login
-        System.out.println("What’s your choice, adventurer? 🧙‍♂️ Are you here to register for the first time or login to your news kingdom?");
-        System.out.println("1. Register\n2. Login");
-        System.out.println();
+        try{
+            // Register or Login
+            System.out.println("What’s your choice, adventurer? 🧙‍♂️ Are you here to register for the first time or login to your news kingdom?");
+            System.out.println("1. Register\n2. Login");
+            System.out.println();
 
-        int choice = scanner.nextInt();
-        scanner.nextLine();  // Consume newline
-        System.out.println();
+            int choice = getValidChoice(scanner);
+            System.out.println();
 
-        Runnable task = () -> {
-            if (choice == 1) {
-                handleRegistration(scanner);
-            } else if (choice == 2) {
-                handleLogin(scanner);
-            }
-        };
+            Runnable task = () -> {
+                try {
+                    if (choice == 1) {
+                        handleRegistration(scanner);
+                    } else if (choice == 2) {
+                        handleLogin(scanner);
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error while executing task: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            };
 
-        // Submit the task and wait for its completion
-        Future<?> future = concurrencyHandler.submitTask(task);
-        try {
+            // Submit the task and wait for its completion
+            Future<?> future = concurrencyHandler.submitTask(task);
             future.get(); // Wait for task completion
+
         } catch (Exception e) {
             System.err.println("Error while executing task: " + e.getMessage());
             e.printStackTrace();
+        }finally {
+            scanner.close(); // Ensure the scanner is closed
         }
+
         System.exit(0); // Terminates the program
+    }
 
-
-
+    private static int getValidChoice(Scanner scanner) {
+        int choice = -1;
+        while (choice != 1 && choice != 2) {
+            try {
+                System.out.print("Enter your choice (1 or 2): ");
+                choice = Integer.parseInt(scanner.nextLine());
+                if (choice != 1 && choice != 2) {
+                    System.out.println("Invalid choice. Please choose 1 or 2.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Please enter a number.");
+            }
+        }
+        return choice;
     }
 
     private static void handleRegistration(Scanner scanner){

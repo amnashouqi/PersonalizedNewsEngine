@@ -227,9 +227,7 @@ public class UserManager {
                 .collect(Collectors.toList());
     }
 
-
     // Collaborative Filtering Methods
-
     private static Map<Integer, Map<Integer, Float>> buildUserItemMatrix() {
         Map<Integer, Map<Integer, Float>> matrix = new HashMap<>();
         String query = "SELECT user_id, article_id, interaction FROM user_article_interactions";
@@ -303,8 +301,5 @@ public class UserManager {
                 .map(entry -> getArticleTitleById(entry.getKey()))
                 .collect(Collectors.toList());
     }
-
-
-
 }
 

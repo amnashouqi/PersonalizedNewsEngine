@@ -35,7 +35,7 @@ def create_user_item_matrix(df):
     user_item_matrix = csr_matrix((df['interaction'], (df['user_idx'], df['article_idx'])))
     return user_item_matrix, user_map, article_map
 
-# Step 3: Main function to run everything
+# Step 3: main.Main function to run everything
 if __name__ == "__main__":
     # Check if user_id is provided as an argument
     # if len(sys.argv) < 2:
