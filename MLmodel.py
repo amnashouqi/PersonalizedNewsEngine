@@ -19,6 +19,11 @@ def load_interaction_data(host, user, password, database):
     query = "SELECT user_id, article_id, interaction FROM user_article_interactions"
     df = pd.read_sql_query(query, conn)
     conn.close()
+
+    # Ensure interaction data is numeric
+    df['interaction'] = pd.to_numeric(df['interaction'], errors='coerce')
+    df.dropna(subset=['interaction'], inplace=True)
+
     return df
 
 # Step 2: Create User-Item Matrix
@@ -33,12 +38,12 @@ def create_user_item_matrix(df):
 # Step 3: Main function to run everything
 if __name__ == "__main__":
     # Check if user_id is provided as an argument
-    if len(sys.argv) < 2:
-        print("Please provide user_id as an argument.")
-        sys.exit(1)
+    # if len(sys.argv) < 2:
+    #     print("Please provide user_id as an argument.")
+    #     sys.exit(1)
 
     # Get user_id from command-line argument
-    user_id = int(sys.argv[1])
+    user_id = 1#int(sys.argv[1])
 
     # Database credentials
     host = "localhost"
@@ -63,7 +68,8 @@ if __name__ == "__main__":
     # Generate recommendations for a user
     recommendations = cf.recommend(user_id, top_n=5)
 
-    # Convert recommendations to a list of regular integers to make them serializable
-    recommendations = [int(article) for article in recommendations]
+ # Reverse map article indices to IDs
+    reverse_article_map = {idx: article_id for article_id, idx in article_map.items()}
+    recommendations = [reverse_article_map[article_idx] for article_idx in recommendations]
 
     print(json.dumps(recommendations))

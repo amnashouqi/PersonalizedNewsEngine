@@ -1,20 +1,14 @@
 package db;
-
 import model.User;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.*;
 import java.util.stream.Collectors;
 import java.util.ArrayList;
 import java.util.List;
+
+import static model.Article.getArticleTitleById;
 
 public class UserManager {
     private static final double CONTENT_WEIGHT = 0.5;
@@ -176,42 +170,42 @@ public class UserManager {
         }
     }
 
-    public static List<String> PythonIntegration(int userId) {
-        List<String> recommendations = new ArrayList<>();
-        try {
-            // Specify the Python script path and Python executable
-            String pythonScriptPath = "MLmodel.py"; // Update with your Python script's path
-            String pythonExecutable = "python";  // Or specify full path to your python executable if needed
-
-            // Create a process to run the Python script with the userId as an argument
-            ProcessBuilder processBuilder = new ProcessBuilder(pythonExecutable, pythonScriptPath, String.valueOf(userId));
-            processBuilder.redirectErrorStream(true); // Redirect error to output stream
-            Process process = processBuilder.start();  // Start the process
-
-            // Capture output of the Python script
-            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                // Assuming the Python script prints the recommendations as a JSON array
-                // For example: ["101", "102", "103"]
-                recommendations.add(line);  // Add the line to the list (you may need to parse this)
-            }
-
-            // Wait for the Python process to complete
-            int exitCode = process.waitFor();
-            System.out.println("Python script executed with exit code: " + exitCode);
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        // Assuming the Python script prints a list of article IDs in JSON format
-        // You might need to parse the string properly if it's returned in a non-plain format.
-        return recommendations;
-    }
+//    public static List<String> PythonIntegration(int userId) {
+//        List<String> recommendations = new ArrayList<>();
+//        try {
+//            // Specify the Python script path and Python executable
+//            String pythonScriptPath = "MLmodel.py"; // Update with your Python script's path
+//            String pythonExecutable = "python";  // Or specify full path to your python executable if needed
+//
+//            // Create a process to run the Python script with the userId as an argument
+//            ProcessBuilder processBuilder = new ProcessBuilder(pythonExecutable, pythonScriptPath, String.valueOf(userId));
+//            processBuilder.redirectErrorStream(true); // Redirect error to output stream
+//            Process process = processBuilder.start();  // Start the process
+//
+//            // Capture output of the Python script
+//            BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+//            String line;
+//            while ((line = reader.readLine()) != null) {
+//                // Assuming the Python script prints the recommendations as a JSON array
+//                // For example: ["101", "102", "103"]
+//                recommendations.add(line);  // Add the line to the list (you may need to parse this)
+//            }
+//
+//            // Wait for the Python process to complete
+//            int exitCode = process.waitFor();
+//            //System.out.println("Python script executed with exit code: " + exitCode);
+//        } catch (IOException | InterruptedException e) {
+//            e.printStackTrace();
+//        }
+//
+//        // Assuming the Python script prints a list of article IDs in JSON format
+//        // You might need to parse the string properly if it's returned in a non-plain format.
+//        return recommendations;
+//    }
 
     public static List<String> hybridRecommendations(int userId) {
         List<String> contentBased = rankArticlesForUser(userId);  // Content-based recommendations
-        List<String> collaborative = PythonIntegration(userId);  // Collaborative filtering via Python
+        List<String> collaborative = recommendCollaborative(userId,5);  // Collaborative filtering via Python
 
         // Combine and rank
         Map<String, Double> hybridScores = new HashMap<>();
@@ -232,6 +226,84 @@ public class UserManager {
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toList());
     }
+
+
+    // Collaborative Filtering Methods
+
+    private static Map<Integer, Map<Integer, Float>> buildUserItemMatrix() {
+        Map<Integer, Map<Integer, Float>> matrix = new HashMap<>();
+        String query = "SELECT user_id, article_id, interaction FROM user_article_interactions";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) {
+                int userId = rs.getInt("user_id");
+                int articleId = rs.getInt("article_id");
+                float interaction = rs.getFloat("interaction");
+
+                matrix.putIfAbsent(userId, new HashMap<>());
+                matrix.get(userId).put(articleId, interaction);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return matrix;
+    }
+
+    private static Map<Integer, Map<Integer, Double>> computeUserSimilarities(Map<Integer, Map<Integer, Float>> userItemMatrix) {
+        Map<Integer, Map<Integer, Double>> userSimilarities = new HashMap<>();
+        for (Integer userA : userItemMatrix.keySet()) {
+            userSimilarities.putIfAbsent(userA, new HashMap<>());
+            for (Integer userB : userItemMatrix.keySet()) {
+                if (userA.equals(userB)) continue;
+
+                double similarity = calculateCosineSimilarity(userItemMatrix.get(userA), userItemMatrix.get(userB));
+                userSimilarities.get(userA).put(userB, similarity);
+            }
+        }
+        return userSimilarities;
+    }
+
+    private static double calculateCosineSimilarity(Map<Integer, Float> userA, Map<Integer, Float> userB) {
+        double dotProduct = 0.0, normA = 0.0, normB = 0.0;
+        for (Integer articleId : userA.keySet()) {
+            float ratingA = userA.get(articleId);
+            float ratingB = userB.getOrDefault(articleId, 0.0f);
+            dotProduct += ratingA * ratingB;
+            normA += Math.pow(ratingA, 2);
+        }
+        for (float ratingB : userB.values()) {
+            normB += Math.pow(ratingB, 2);
+        }
+        return (dotProduct / (Math.sqrt(normA) * Math.sqrt(normB)));
+    }
+
+    public static List<String> recommendCollaborative(int userId, int topN) {
+        Map<Integer, Map<Integer, Float>> userItemMatrix = buildUserItemMatrix();
+        Map<Integer, Map<Integer, Double>> userSimilarities = computeUserSimilarities(userItemMatrix);
+
+        if (!userSimilarities.containsKey(userId)) return new ArrayList<>();
+
+        Map<Integer, Double> scores = new HashMap<>();
+        for (Map.Entry<Integer, Double> entry : userSimilarities.get(userId).entrySet()) {
+            int similarUser = entry.getKey();
+            double similarity = entry.getValue();
+
+            for (Map.Entry<Integer, Float> item : userItemMatrix.getOrDefault(similarUser, Collections.emptyMap()).entrySet()) {
+                int articleId = item.getKey();
+                if (!userItemMatrix.get(userId).containsKey(articleId)) { // Skip already interacted items
+                    scores.put(articleId, scores.getOrDefault(articleId, 0.0) + similarity * item.getValue());
+                }
+            }
+        }
+
+        return scores.entrySet().stream()
+                .sorted(Map.Entry.<Integer, Double>comparingByValue().reversed())
+                .limit(topN)
+                .map(entry -> getArticleTitleById(entry.getKey()))
+                .collect(Collectors.toList());
+    }
+
 
 
 }

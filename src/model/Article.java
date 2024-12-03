@@ -200,6 +200,21 @@ public class Article {
         return articleId;
     }
 
+    public static String getArticleTitleById(int articleId) {
+        String query = "SELECT title FROM articles WHERE id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setInt(1, articleId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                return rs.getString("title");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
     public static Map<String, Integer> getArticleScores(int articleId) {
         Map<String, Integer> scores = new HashMap<>();
         String query = "SELECT category, keyword_count FROM article_classification WHERE article_id = ?";

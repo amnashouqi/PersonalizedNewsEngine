@@ -17,7 +17,7 @@ class CollaborativeFiltering:
         """Compute user-user cosine similarity."""
         self.user_similarity = cosine_similarity(self.user_item_matrix)
 
-    def recommend(self, user_id, top_n=10):
+    def recommend(self, user_id, top_n=5):
         """
         Generate article recommendations for a given user.
         :param user_id: ID of the user for whom to generate recommendations.
