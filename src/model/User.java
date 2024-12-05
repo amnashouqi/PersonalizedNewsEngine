@@ -1,17 +1,6 @@
 package model;
 
-import db.DBConnection;
 import db.UserManager;
-
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.Map;
-import java.util.Scanner;
-
-
-import static model.RecommendationSystem.*;
 
 // UserInterface: Interface defining methods for user actions (like, dislike, skip, rate)
 interface UserInterface {
@@ -20,10 +9,13 @@ interface UserInterface {
     String getPassword();  // Get password
     void setPassword(String password);  // Set password
 
-    void userLikes(int articleId);  // Like an article
-    void userDislikes(int articleId);  // Dislike an article
-    void userSkips(int articleId);  // Skip an article
-    void userRates(int articleId);  // Rate an article
+    //void userLikes(int articleId);  // Like an article
+
+    void userLikes(int id, int articleId);
+
+    void userDislikes(int id, int articleId);  // Dislike an article
+    void userSkips(int id, int articleId);  // Skip an article
+    void userRates(int id, int articleId);  // Rate an article
 }
 
 // User class implementing the UserInterface, encapsulating user details and actions
@@ -76,22 +68,22 @@ public class User implements UserInterface {
     }
 
     @Override
-    public void userLikes(int articleId) {
-        UserManager.userLikes(articleId);
+    public void userLikes(int id, int articleId) {
+        UserManager.userLikes(id, articleId);
     }
 
     @Override
-    public void userDislikes(int articleId) {
-        UserManager.userDislikes(articleId);
+    public void userDislikes(int id, int articleId) {
+        UserManager.userDislikes(id, articleId);
     }
 
     @Override
-    public void userRates(int articleId) {
-        UserManager.userRates(articleId);
+    public void userRates(int id, int articleId) {
+        UserManager.userRates(id, articleId);
     }
 
     @Override
-    public void userSkips(int articleId) {
-        UserManager.userSkips(articleId);
+    public void userSkips(int id, int articleId) {
+        UserManager.userSkips(id, articleId);
     }
 }

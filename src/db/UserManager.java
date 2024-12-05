@@ -1,4 +1,5 @@
 package db;
+import main.Main;
 import model.User;
 import java.sql.*;
 import java.util.*;
@@ -10,11 +11,12 @@ import java.util.List;
 
 import static model.Article.getArticleTitleById;
 import static model.RecommendationSystem.updateInteractionScore;
+import static model.Administration.*;
 
 public class UserManager {
 
     // Static variable to hold the current logged-in user. An approach for managing a single user session at a time.
-    private static User currentUser = null;
+    private static User currentUser;
 
     // ReentrantLock for thread-safety during user-related operations
     private static final ReentrantLock lock = new ReentrantLock();
@@ -28,8 +30,13 @@ public class UserManager {
         return currentUser;
     }
 
+    public static void setCurrentUser(User currentUser) {
+        UserManager.currentUser = currentUser;
+    }
+
     // Encapsulation | Managing user registration with database access in a method.
     public static boolean registerUser(User user) {
+
         lock.lock();  // To ensure thread-safety during the registration process.
         try (Connection conn = DBConnection.getConnection()) {
 
@@ -44,16 +51,17 @@ public class UserManager {
             int count = rs.getInt(1);
 
             if (count > 0) {
-                System.out.println("Username already exists. Registration failed.");
+                System.out.println("You are promoted! your username already exists. Let's try logging in");
                 System.out.println();
-                return false; // User already exists
+                Scanner scanner = new Scanner(System.in);
+                Main.handleLogin(scanner);
             }
 
             // Insert new user
             String query = "INSERT INTO Users (username, password) VALUES (?, ?)";
             PreparedStatement stmt = conn.prepareStatement(query);
             stmt.setString(1, user.getUsername());
-            stmt.setString(2, user.getPassword());  // Password should be hashed in a production system.
+            stmt.setString(2, user.getPassword());
             return stmt.executeUpdate() > 0;
         } catch (Exception e) {
             e.printStackTrace();
@@ -64,7 +72,9 @@ public class UserManager {
     }
 
     // Method to login a user by validating credentials. Returns user ID on success, -1 if login fails.
+
     public static int loginUser(String username, String password) {
+
         String sql = "SELECT id FROM users WHERE username = ? AND password = ?";
 
         try (Connection conn = DBConnection.getConnection();
@@ -74,8 +84,18 @@ public class UserManager {
             pstmt.setString(2, password);
 
             ResultSet rs = pstmt.executeQuery();
+
+            // Check if the username is "admin"
+            if (username.equals("admin") && password.equals("nimda")) {
+                Administration();  // If it's the admin user, proceed to the admin actions
+                return 1;  // Admin's id is 1
+            }
+
             if (rs.next()) {
-                return rs.getInt("id"); // Return user_id if login is successful
+                int value = rs.getInt("id"); // Return user_id if login is successful
+                User user = new User(value, username, password);
+                setCurrentUser(user);
+                return value;
             } else {
                 return -1; // Return -1 if login fails
             }
@@ -144,9 +164,10 @@ public class UserManager {
         }
     }
 
-    public static void userLikes(int articleId) {
+    public static void userLikes(int id, int articleId) {
+        //System.out.println("we got here0");
         // Get current user instance using UserManager (encapsulation of global user)
-        User user = UserManager.getCurrentUser();
+        //User user = UserManager.getCurrentUser();
 
         // SQL queries for fetching categories and updating preferences
         String fetchCategoriesQuery = "SELECT category, keyword_count FROM article_classification WHERE article_id = ?";
@@ -155,44 +176,59 @@ public class UserManager {
         VALUES (?, ?, ?)
         ON DUPLICATE KEY UPDATE score = score + ?
     """;
-
+        //System.out.println("we got here1");
         try (Connection conn = DBConnection.getConnection();
+
              PreparedStatement fetchStmt = conn.prepareStatement(fetchCategoriesQuery);
              PreparedStatement updateStmt = conn.prepareStatement(updatePreferencesQuery)) {
+
+            //System.out.println("we got here2");
 
             // Fetch the categories and weights associated with the article
             fetchStmt.setInt(1, articleId);
             ResultSet rs = fetchStmt.executeQuery();
 
+            //System.out.println("we got here3");
+
             while (rs.next()) {
+                //System.out.println("we got here4");
                 String category = rs.getString("category");
                 int keywordCount = rs.getInt("keyword_count");
+
+                //System.out.println("we got here5");
 
                 // Calculate dynamic impact of a like
                 int impactOfALike = 2 * keywordCount; // Dynamic weight based on keyword_count
 
                 // Update the user's preferences for each category (use of batching for efficiency)
-                updateStmt.setInt(1, user.getId());
+                updateStmt.setInt(1, id);
                 updateStmt.setString(2, category);
                 updateStmt.setInt(3, impactOfALike); // Insert score
                 updateStmt.setInt(4, impactOfALike); // Increment score if exists
                 updateStmt.addBatch(); // Add to batch (improves performance)
+                //System.out.println("we got here6");
             }
 
-            // Update interaction score for this user
-            updateInteractionScore(user.getId(), articleId, 5.0f); // 5.0 for like
+            //System.out.println("we got here7");
 
             // Execute the batch update (use of batch processing for better performance)
             updateStmt.executeBatch();
             System.out.println("Thumbs up! You officially liked it. We knew you had good taste.");
+
+            // Update interaction score for this user
+            updateInteractionScore(id, articleId, 5.0f); // 5.0 for like
+
+            //System.out.println("we got here8");
+
         } catch (SQLException e) {
+            //System.out.println("we got here9");
             e.printStackTrace();
         }
     }
 
     // Method to handle user disliking an article (similar to the 'userLikes' method)
-    public static void userDislikes(int articleId) {
-        User user = UserManager.getCurrentUser();
+    public static void userDislikes(int id, int articleId) {
+        //User user = getCurrentUser();
 
         // SQL queries for fetching categories and updating preferences
         String fetchCategoriesQuery = "SELECT category, keyword_count FROM article_classification WHERE article_id = ?";
@@ -200,7 +236,7 @@ public class UserManager {
         INSERT INTO user_preferences (user_id, category, score)
         VALUES (?, ?, ?)
         ON DUPLICATE KEY UPDATE score = score + ?
-    """;
+        """;
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement fetchStmt = conn.prepareStatement(fetchCategoriesQuery);
@@ -215,10 +251,10 @@ public class UserManager {
                 int keywordCount = rs.getInt("keyword_count");
 
                 // Calculate dynamic impact of a dislike
-                int impactOfADislike = -2 * keywordCount; // Dynamic weight based on keyword_count
+                int impactOfADislike = -2 * Math.abs(keywordCount);// Dynamic weight based on keyword_count
 
                 // Update the user's preferences for each category
-                updateStmt.setInt(1, user.getId());
+                updateStmt.setInt(1, id);
                 updateStmt.setString(2, category);
                 updateStmt.setInt(3, impactOfADislike); // Insert score
                 updateStmt.setInt(4, impactOfADislike); // Decrement score if exists
@@ -226,7 +262,7 @@ public class UserManager {
             }
 
             // Update interaction score for this user (negative score for dislike)
-            updateInteractionScore(user.getId(), articleId, -5.0f); // -5.0 for dislike
+            updateInteractionScore(id, articleId, -5.0f); // -5.0 for dislike
 
             // Execute the batch update
             updateStmt.executeBatch();
@@ -238,8 +274,8 @@ public class UserManager {
 
 
     // Method to handle user skipping an article (same idea as liking/disliking)
-    public static void userSkips(int articleId) {
-        User user = UserManager.getCurrentUser();
+    public static void userSkips(int id, int articleId) {
+        //User user = UserManager.getCurrentUser();
 
         // Define the weightage of a skip
         int impactOfASkip = -1; // Reduce score for skipping
@@ -249,7 +285,7 @@ public class UserManager {
         String updatePreferencesQuery = """
         INSERT INTO user_preferences (user_id, category, score)
         VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE score = GREATEST(score + ?, 0)
+        ON DUPLICATE KEY UPDATE score = score + ?
     """;
 
         try (Connection conn = DBConnection.getConnection();
@@ -264,7 +300,7 @@ public class UserManager {
                 String category = rs.getString("category");
 
                 // Update the user's preferences for each category
-                updateStmt.setInt(1, user.getId());
+                updateStmt.setInt(1, id);
                 updateStmt.setString(2, category);
                 updateStmt.setInt(3, impactOfASkip); // Insert score
                 updateStmt.setInt(4, impactOfASkip); // Decrement score if exists
@@ -272,7 +308,7 @@ public class UserManager {
             }
 
             // Update interaction score for this user (skip has minimal impact)
-            updateInteractionScore(user.getId(), articleId, -1.0f);
+            updateInteractionScore(id, articleId, -1.0f);
 
             // Execute the batch update
             updateStmt.executeBatch();
@@ -283,15 +319,15 @@ public class UserManager {
 
 
     // Method to handle user rating an article (allows users to rate articles from 1 to 10)
-    public static void userRates(int articleId) {
-        User user = UserManager.getCurrentUser();
+    public static void userRates(int id, int articleId) {
+        //User user = getCurrentUser();
 
         // SQL queries for fetching categories and updating preferences
         String fetchCategoriesQuery = "SELECT category, keyword_count FROM article_classification WHERE article_id = ?";
         String updatePreferencesQuery = """
         INSERT INTO user_preferences (user_id, category, score)
         VALUES (?, ?, ?)
-        ON DUPLICATE KEY UPDATE score = ?
+        ON DUPLICATE KEY UPDATE score = score + ?
     """;
 
         try (Connection conn = DBConnection.getConnection();
@@ -317,14 +353,18 @@ public class UserManager {
             double multiplier;
             if (rating == 6) {
                 multiplier = 1; // No impact for a neutral rating
-                updateInteractionScore(user.getId(), articleId, 0.0f); // 0.0 for neutral
+                updateInteractionScore(id, articleId, 0.0f); // 0.0 for neutral
             } else if (rating > 6) {
                 multiplier = 1 + (rating - 6) * 0.5; // Increment by 0.5 per step above 6
                 System.out.println("Top contender right here! This article just leveled up.");
-                updateInteractionScore(user.getId(), articleId, (rating - 3));
+                updateInteractionScore(id, articleId, (rating - 3));
+            }else if (rating ==1) {
+                multiplier = -0.1; // Increment by 0.5 per step above 6
+                //System.out.println("Top contender right here! This article just leveled up.");
+                updateInteractionScore(id, articleId, (rating - 3));
             } else {
-                multiplier = 1 - (6 - rating) * 0.2; // Decrease multiplier for negative ratings (below 6)
-                updateInteractionScore(user.getId(), articleId, rating - 5); // 0.0 for dislike
+                multiplier = -(1 - (6 - rating) * 0.2); // Decrease multiplier for negative ratings (below 6)
+                updateInteractionScore(id, articleId, rating - 5); // 0.0 for dislike
                 System.out.println("Don’t worry, we are working hard behind the scenes to find your favorites!");
             }
 
@@ -335,10 +375,10 @@ public class UserManager {
 
                 // Apply multiplier and calculate new score
                 int roundedScore = (int) Math.round(currentScore * multiplier);
-                if (roundedScore < 0) roundedScore = 0; // Ensure score doesn't go negative
+                //if (roundedScore < 0) roundedScore = 0; // Ensure score doesn't go negative
 
                 // Update the score in the database
-                updateStmt.setInt(1, user.getId());
+                updateStmt.setInt(1, id);
                 updateStmt.setString(2, category);
                 updateStmt.setInt(3, roundedScore); // Insert score
                 updateStmt.setInt(4, roundedScore); // Update score
@@ -347,7 +387,7 @@ public class UserManager {
 
             // Execute batch update
             updateStmt.executeBatch();
-            System.out.println("User rating updated successfully for user ID: " + user.getId());
+            System.out.println("User rating updated successfully for user ID: " + id);
         } catch (SQLException e) {
             e.printStackTrace();
         }

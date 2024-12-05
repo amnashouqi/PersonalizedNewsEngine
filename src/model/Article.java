@@ -96,9 +96,13 @@ public class Article {
             System.out.println();
 
             if (likeOrDislike.equalsIgnoreCase("Like")) {
-                executorService.submit(() -> user.userLikes(articleId));    // Delegating action to the User class (Abstraction, Polymorphism)
+                //System.out.println("user.userlikes called b4 ex service");
+                UserManager.userLikes(userId, articleId);
+                //executorService.submit(() -> user.userLikes(userId, articleId));    // Delegating action to the User class (Abstraction, Polymorphism)
+                //System.out.println("user.userlikes called after ex service");
             } else if (likeOrDislike.equalsIgnoreCase("Dislike")) {
-                executorService.submit(() -> user.userDislikes(articleId));     // Polymorphism | Executes different methods based on user input
+                UserManager.userDislikes(userId, articleId);
+                //executorService.submit(() -> user.userDislikes(articleId));     // Polymorphism | Executes different methods based on user input
             } else {
                 System.out.println("Invalid preference entered. ");
             }
@@ -108,7 +112,8 @@ public class Article {
             System.out.println();
 
             if (rateOrNo.equalsIgnoreCase("Y")) {
-                executorService.submit(() -> user.userRates(articleId));    // Asynchronous task submission
+                UserManager.userRates(userId, articleId);
+                //executorService.submit(() -> user.userRates(articleId));    // Asynchronous task submission
                 System.out.println();
             } else if (rateOrNo.equalsIgnoreCase("N")) {
                 System.out.println("Algorithm is sad without your rating 🥲");
@@ -235,7 +240,7 @@ public class Article {
 
         for (Object id : articleIds) {
             if (id instanceof Integer && (Integer) id != viewedArticleId) {
-                user.userSkips((Integer) id); // Skipping articles that were not selected
+                user.userSkips(userId, (Integer) id); // Skipping articles that were not selected
             }
         }
     }

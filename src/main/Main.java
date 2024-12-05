@@ -117,7 +117,7 @@ public class Main {
      * OOP Principle: **Abstraction** - Hides the complexity of login handling and news fetching from the user.
      * @param scanner the scanner to read user input
      */
-    private static void handleLogin(Scanner scanner){
+    public static void handleLogin(Scanner scanner){
 
         System.out.print("Enter your username to unlock your news: ");
         String username = scanner.nextLine();
@@ -126,8 +126,9 @@ public class Main {
 
         int userId = UserManager.loginUser(username, password);  // User login validation
         if (userId != -1) {
-            System.out.println("It’s good to see you again "+username+"!. Your personalized news awaits!");
+            System.out.println("It’s good to see you again "+username+"! Your personalized news feed is being scraped!🕸");
             Webscraper.scrapeArticles(userId);  // Scrape articles based on user ID
+            System.out.println();
         } else {
             System.out.println("Oops! That didn’t work. Double-check your username and password, and try again!");
         }
