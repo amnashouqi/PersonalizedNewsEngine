@@ -65,13 +65,36 @@ public class Webscraper {
         }
     }
 
+
+    /**
+     * Fetches a document from a URL with retry logic in case of failure.
+     * OOP principle: **Abstraction** - This method abstracts the process of fetching documents.
+     * @param url the URL of the page to fetch
+     * @return the Document object from the fetched URL, or null if it fails
+     */
+    private static Document fetchDocument(String url) {
+        int retries = 3;
+        while (retries > 0) {
+            try {
+                return Jsoup.connect(url).timeout(5000).get();
+            } catch (IOException e) {
+                retries--;
+                System.err.println("Failed to fetch URL: " + url + ". Retries left: " + retries);
+                if (retries == 0) {
+                    logError("Failed to fetch document after retries: " + url, e);
+                }
+            }
+        }
+        return null;
+    }
+
     /**
      * Processes an individual article, scraping its content and saving it to the database.
      * OOP principle: **Single Responsibility Principle** (SRP) - The method has a single responsibility to handle article processing.
      * @param title the title of the article
      * @param url the URL of the article
      */
-    private static void processArticle(String title, String url) {
+    public static void processArticle(String title, String url) {
         try {
             // Fetch the article page
             Document articlePage = fetchDocument(url);
@@ -100,29 +123,6 @@ public class Webscraper {
         } catch (Exception e) {
             logError("An error occurred while processing article: " + title, e);
         }
-    }
-
-
-    /**
-     * Fetches a document from a URL with retry logic in case of failure.
-     * OOP principle: **Abstraction** - This method abstracts the process of fetching documents.
-     * @param url the URL of the page to fetch
-     * @return the Document object from the fetched URL, or null if it fails
-     */
-    private static Document fetchDocument(String url) {
-        int retries = 3;
-        while (retries > 0) {
-            try {
-                return Jsoup.connect(url).timeout(5000).get();
-            } catch (IOException e) {
-                retries--;
-                System.err.println("Failed to fetch URL: " + url + ". Retries left: " + retries);
-                if (retries == 0) {
-                    logError("Failed to fetch document after retries: " + url, e);
-                }
-            }
-        }
-        return null;
     }
 
     /**

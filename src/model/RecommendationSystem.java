@@ -25,6 +25,8 @@ public class RecommendationSystem {
 
     // Content-based recommendation (Inner Class)
     public static class ContentBasedRecommendation extends RecommendationSystem {
+
+        // Polymorphism | Using the same method (rankArticlesForUser) to rank articles for different users.
         public static List<String> rankArticlesForUser(int userId) {
             List<String> rankedArticles = new ArrayList<>();
             try (Connection conn = DBConnection.getConnection()) {
@@ -70,51 +72,50 @@ public class RecommendationSystem {
     // Collaborative filtering recommendation (Inner Class)
     public static class CollaborativeFilteringRecommendation extends RecommendationSystem {
 
-        // Polymorphism | Using the same method (rankArticlesForUser) to rank articles for different users.
-        public static List<String> rankArticlesForUser(int userId) {
-            lock.lock();  // Ensure thread-safety during the ranking process.
-            List<String> rankedArticles = new ArrayList<>();
-            try (Connection conn = DBConnection.getConnection()) {
-                // Retrieve user preferences from db
-                Map<String, Integer> userPreferences = UserManager.getUserPreferences(userId);
-
-                // Prepare the SQL query to rank articles by keyword count for preferred categories
-                String query = """
-        SELECT a.title, SUM(ac.keyword_count * up.score) AS total_score
-        FROM Articles a
-        JOIN article_classification ac ON a.id = ac.article_id
-        JOIN user_preferences up ON ac.category = up.category AND up.user_id = ?
-        WHERE ac.category IN (%s)
-        GROUP BY a.id
-        ORDER BY total_score DESC
-        """;
-
-                // Prepare category placeholders dynamically
-                String categories = String.join(",", Collections.nCopies(userPreferences.size(), "?"));
-                query = String.format(query, categories);
-
-                try (PreparedStatement pstmt = conn.prepareStatement(query)) {
-                    // Set user-preferred categories in the query
-                    int index = 1;
-                    pstmt.setInt(index++, userId); // Set the user ID in the query
-
-                    // Set categories dynamically
-                    for (String category : userPreferences.keySet()) {
-                        pstmt.setString(index++, category);
-                    }
-
-                    ResultSet rs = pstmt.executeQuery();
-                    while (rs.next()) {
-                        rankedArticles.add(rs.getString("title")); // Add titles to the result list
-                    }
-                }
-            } catch (SQLException e) {
-                e.printStackTrace();
-            } finally {
-                lock.unlock();
-            }
-            return rankedArticles;
-        }
+//        public static List<String> rankArticlesForUser(int userId) {
+//            lock.lock();  // Ensure thread-safety during the ranking process.
+//            List<String> rankedArticles = new ArrayList<>();
+//            try (Connection conn = DBConnection.getConnection()) {
+//                // Retrieve user preferences from db
+//                Map<String, Integer> userPreferences = UserManager.getUserPreferences(userId);
+//
+//                // Prepare the SQL query to rank articles by keyword count for preferred categories
+//                String query = """
+//        SELECT a.title, SUM(ac.keyword_count * up.score) AS total_score
+//        FROM Articles a
+//        JOIN article_classification ac ON a.id = ac.article_id
+//        JOIN user_preferences up ON ac.category = up.category AND up.user_id = ?
+//        WHERE ac.category IN (%s)
+//        GROUP BY a.id
+//        ORDER BY total_score DESC
+//        """;
+//
+//                // Prepare category placeholders dynamically
+//                String categories = String.join(",", Collections.nCopies(userPreferences.size(), "?"));
+//                query = String.format(query, categories);
+//
+//                try (PreparedStatement pstmt = conn.prepareStatement(query)) {
+//                    // Set user-preferred categories in the query
+//                    int index = 1;
+//                    pstmt.setInt(index++, userId); // Set the user ID in the query
+//
+//                    // Set categories dynamically
+//                    for (String category : userPreferences.keySet()) {
+//                        pstmt.setString(index++, category);
+//                    }
+//
+//                    ResultSet rs = pstmt.executeQuery();
+//                    while (rs.next()) {
+//                        rankedArticles.add(rs.getString("title")); // Add titles to the result list
+//                    }
+//                }
+//            } catch (SQLException e) {
+//                e.printStackTrace();
+//            } finally {
+//                lock.unlock();
+//            }
+//            return rankedArticles;
+//        }
 
         private static Map<Integer, Map<Integer, Float>> buildUserItemMatrix() {
             Map<Integer, Map<Integer, Float>> matrix = new HashMap<>();
