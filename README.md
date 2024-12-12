@@ -25,7 +25,8 @@ suitable news for the user according to their predicted preference.
 - User Interaction Tracking (likes, skips, ratings)
 - Multi-user Management
 - Hybrid Recommendation System
-- Real-time web scraping 
+- Real-time web scraping
+- Administration access to update keywords, add or remove articles
 
 ## Usage
 1. Log in or register as a new user.
