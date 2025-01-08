@@ -34,5 +34,5 @@ suitable news for the user according to their predicted preference.
 
 ## Technologies Used
 - **Java**: Core logic
-- **MySQL**: Database
+- **MySQL**: Database.
 
