@@ -4,7 +4,7 @@
 
 Problem Identification
 
-With the massive amount of content that an average person consumes on a day to day basis,
+With the massive amount of content that an average person consumes on a day-to-day basis,
 information overload is a concern. Users looking for customized contents are rising and
 people prefer to only hear and learn about things of their interest. This issue is been visible in
 media platforms specifically in terms of NEWS.
